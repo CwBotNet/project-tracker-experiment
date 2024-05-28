@@ -26,11 +26,32 @@ app.use("/*", cors());
 /*-------------------------root-route-----------------------*/
 app.get("/", ...healthCheckHandler);
 /*-------------------------x-oauth2-route-----------------------*/
+
 app.get("/oAuth2", ...xSetupHandler);
 
 /*-------------------------x-callback-route-----------------------*/
+
+// app.get("/x-Callback", async (c) => {
+//   try {
+//     const { code, state } = c.req.query();
+    
+//     const body={
+//       code: code,
+//       Client_id: c.env.CLIENT_ID,
+//       redirect_uri: c.env.REDIRECT_URI,
+//       Client_secret
+
+//     }
+
+
+//   } catch (error) {
+//     return null;
+//   }
+// });
+
 app.get("/callback", ...xCallabckHandler);
 
+/*-------------------------testing-routes-----------------------*/
 app.post("/kv-update-post", async (c) => {
   try {
     await c.env.STATE_KV.put("state", "stateUPdated");

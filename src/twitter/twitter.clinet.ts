@@ -102,7 +102,64 @@ async function loginWithOauth2({
     accessToken: responseDate.access_token,
     refreshToken: responseDate.refresh_token,
   };
-  return result;
+  return { result, response };
+}
+
+interface AccessToken {
+  code: string;
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  codeVerifier: string;
+}
+async function getAccessToken({
+  code,
+  clientId,
+  codeVerifier,
+  redirectUri,
+  clientSecret,
+}: AccessToken) {
+  const url = "https://api.twitter.com/2/oauth2/token";
+  const headers = {
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+  const body = {
+    code: code,
+    grant_type: "authorization_code",
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    code_verifier: codeVerifier,
+    client_secret: clientSecret,
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: headers,
+      body: new URLSearchParams(body).toString(),
+    });
+
+    if (!response.ok) {
+      const errorResponse: any = await response.json();
+      console.error("Error response: ", errorResponse);
+      throw new Error(
+        `API Error: ${errorResponse.error_description || response.statusText}`
+      );
+    }
+
+    const ContentType = response.headers.get("Content-Type");
+    let tokenData;
+    if (ContentType === "application/json") {
+      tokenData = await response.json();
+    } else {
+      tokenData = await response.text();
+    }
+
+    console.log(tokenData);
+    return tokenData;
+  } catch (error: any) {
+    console.error("Failed to fetch token:", error.message);
+  }
 }
 
 /**
@@ -175,4 +232,10 @@ async function tweet({
   return responseData;
 }
 
-export { generateOAuth2AuthLink, loginWithOauth2, refreshOAuth2Token, tweet };
+export {
+  generateOAuth2AuthLink,
+  loginWithOauth2,
+  refreshOAuth2Token,
+  tweet,
+  getAccessToken,
+};

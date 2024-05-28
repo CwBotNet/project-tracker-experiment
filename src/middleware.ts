@@ -1,6 +1,10 @@
 import { createFactory } from "hono/factory";
 import { generateCodeChallenge, generateCodeVerifier } from "./helper/utils";
-import { generateOAuth2AuthLink, loginWithOauth2 } from "./twitter";
+import {
+  generateOAuth2AuthLink,
+  getAccessToken,
+  loginWithOauth2,
+} from "./twitter";
 import { storeTokenInNotion } from "./notion";
 
 const factory = createFactory();
@@ -12,7 +16,7 @@ const xSetupHandler = factory.createHandlers(async (c) => {
     const challenge = await generateCodeChallenge(verifier);
 
     const { REDIRECT_URI, CLIENT_ID, CODE_VERIFIER_KV, STATE_KV } = c.env;
-    const { url } = await generateOAuth2AuthLink({
+    const response = await generateOAuth2AuthLink({
       callbackUrl: REDIRECT_URI,
       state: state,
       codeChallenge: challenge,
@@ -31,12 +35,15 @@ const xSetupHandler = factory.createHandlers(async (c) => {
     const storedVerifier = await c.env.CODE_VERIFIER_KV.get("verifier");
     const storedState = await c.env.STATE_KV.get("state");
     console.log({
-      url: url,
+      url: response.url,
       codeVerifier: storedVerifier,
       state: storedState,
     });
 
-    return c.redirect(url);
+    console.log({
+      data: response,
+    });
+    return c.redirect(response.url);
   } catch (error) {
     console.error("Error during setup handler execution:", error);
     return new Response("Internal Server Error", { status: 500 });
@@ -44,10 +51,10 @@ const xSetupHandler = factory.createHandlers(async (c) => {
 });
 
 const xCallabckHandler = factory.createHandlers(async (c) => {
-  try {
-    const { code, state } = c.req.query();
-    const { TWITTER_API_BASE, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } = c.env;
+  const { code, state } = c.req.query();
+  const { TWITTER_API_BASE, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } = c.env;
 
+  try {
     const storedState = await c.env.STATE_KV.get("state");
     console.log("Stored state:", storedState);
 
@@ -63,31 +70,25 @@ const xCallabckHandler = factory.createHandlers(async (c) => {
     if (!storedCodeVerifire) {
       return c.json({ error: "Invalid or expired verifier" }, 400);
     }
-
-    // const tokenResponse = await fetch(`${TWITTER_API_BASE}/2/oauth2/token`, {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    //   body: new URLSearchParams({
-    //     code,
-    //     grant_type: "authorization_code",
-    //     client_id: CLIENT_ID,
-    //     redirect_uri: REDIRECT_URI,
-    //     code_verifier: storedCodeVerifire,
-    //     client_secret: CLIENT_SECRET,
-    //   }),
-    // });
-
-    const tokenResponse = await loginWithOauth2({
-      clientId: CLIENT_ID,
-      clientSecret: CLIENT_SECRET,
+    
+    console.log({
       code: code,
+      state: state,
       codeVerifier: storedCodeVerifire,
+      basiuri: TWITTER_API_BASE,
+      clientId: CLIENT_ID,
       redirectUri: REDIRECT_URI,
     });
 
-    console.log(await tokenResponse);
+    const tokenResponse: any = await getAccessToken({
+      code: code,
+      clientId: CLIENT_ID,
+      codeVerifier: storedCodeVerifire,
+      redirectUri: REDIRECT_URI,
+      clientSecret: CLIENT_SECRET,
+    });
 
-    if (!tokenResponse.accessToken) {
+    if (tokenResponse.ok) {
       return c.json({ error: "Failed to fetch token" }, 500);
     }
 
@@ -103,15 +104,10 @@ const xCallabckHandler = factory.createHandlers(async (c) => {
     //     databaseId: NOTION_DATABASE_ID,
     //   },
     // });
-
+    const tokenData = await tokenResponse;
+    console.log("----------------------------------------");
     console.log("Callback route executed successfully", tokenResponse);
-    return c.json(
-      {
-        accessToken: tokenResponse.accessToken,
-        refreshtoken: tokenResponse.refreshToken,
-      },
-      200
-    );
+    return c.json(tokenResponse, 200);
   } catch (error) {
     console.error("Error during callback handler execution:", error);
     return new Response("Internal Server Error", { status: 500 });
