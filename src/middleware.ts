@@ -21,7 +21,7 @@ const xSetupHandler = factory.createHandlers(async (c) => {
       state: state,
       codeChallenge: challenge,
       code_challenge_method: "S256",
-      scope: "tweet.read users.read follows.read follows.write",
+      scope: "tweet.read users.read follows.read follows.write tweet.write",
       clientId: CLIENT_ID,
     });
     // Save verifier and state in KV storage
@@ -70,7 +70,7 @@ const xCallabckHandler = factory.createHandlers(async (c) => {
     if (!storedCodeVerifire) {
       return c.json({ error: "Invalid or expired verifier" }, 400);
     }
-    
+
     console.log({
       code: code,
       state: state,
@@ -88,7 +88,14 @@ const xCallabckHandler = factory.createHandlers(async (c) => {
       clientSecret: CLIENT_SECRET,
     });
 
-    if (tokenResponse.ok) {
+    // const tokenResponse = await loginWithOauth2({
+    //   code: code,
+    //   clientId: CLIENT_ID,
+    //   clientSecret: CLIENT_SECRET,
+    //   codeVerifier: storedCodeVerifire,
+    //   redirectUri: REDIRECT_URI,
+    // });
+    if (!tokenResponse) {
       return c.json({ error: "Failed to fetch token" }, 500);
     }
 
@@ -104,10 +111,13 @@ const xCallabckHandler = factory.createHandlers(async (c) => {
     //     databaseId: NOTION_DATABASE_ID,
     //   },
     // });
-    const tokenData = await tokenResponse;
+    const tokenData = await JSON.parse(tokenResponse);
+    await c.env.X_ACCESS_TOKEN.put("accessToken", tokenData.access_token);
+    await c.env.X_REFRESH_TOKEN.put("refreshToken", tokenData.refresh_token);
     console.log("----------------------------------------");
-    console.log("Callback route executed successfully", tokenResponse);
-    return c.json(tokenResponse, 200);
+    console.log("Callback route executed successfully", tokenData.access_token);
+
+    return c.json({ token: tokenData }, 200);
   } catch (error) {
     console.error("Error during callback handler execution:", error);
     return new Response("Internal Server Error", { status: 500 });
