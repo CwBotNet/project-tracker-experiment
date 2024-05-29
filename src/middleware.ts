@@ -3,7 +3,9 @@ import { generateCodeChallenge, generateCodeVerifier } from "./helper/utils";
 import {
   generateOAuth2AuthLink,
   getAccessToken,
+  getXtweet,
   loginWithOauth2,
+  tweet,
 } from "./twitter";
 import { storeTokenInNotion } from "./notion";
 
@@ -15,7 +17,7 @@ const xSetupHandler = factory.createHandlers(async (c) => {
     const state: string = crypto.randomUUID();
     const challenge = await generateCodeChallenge(verifier);
 
-    const { REDIRECT_URI, CLIENT_ID, CODE_VERIFIER_KV, STATE_KV } = c.env;
+    const { REDIRECT_URI, CLIENT_ID } = c.env;
     const response = await generateOAuth2AuthLink({
       callbackUrl: REDIRECT_URI,
       state: state,
@@ -88,13 +90,6 @@ const xCallabckHandler = factory.createHandlers(async (c) => {
       clientSecret: CLIENT_SECRET,
     });
 
-    // const tokenResponse = await loginWithOauth2({
-    //   code: code,
-    //   clientId: CLIENT_ID,
-    //   clientSecret: CLIENT_SECRET,
-    //   codeVerifier: storedCodeVerifire,
-    //   redirectUri: REDIRECT_URI,
-    // });
     if (!tokenResponse) {
       return c.json({ error: "Failed to fetch token" }, 500);
     }
@@ -128,4 +123,60 @@ const healthCheckHandler = factory.createHandlers(async (c) => {
   return c.text("Hello Hono!");
 });
 
-export { xSetupHandler, healthCheckHandler, xCallabckHandler };
+/*-----------------------xTwitter----------------------------------------*/
+
+const getXtweetHandler = factory.createHandlers(async (c) => {
+  const { X_ACCESS_TOKEN } = c.env;
+
+  const accessToken = await X_ACCESS_TOKEN.get("accessToken");
+  const body = await c.req.parseBody();
+  const { ids } = body;
+  console.log({
+    body: body,
+    ids: ids,
+    accessToken: accessToken,
+  });
+  try {
+    const response = await getXtweet({
+      tweetId: ids as string,
+      accessToken: accessToken,
+    });
+    return c.json({ data: response }, 200);
+  } catch (error: any) {
+    console.log(error.message);
+  }
+});
+
+const postXtweethandler = factory.createHandlers(async (c) => {
+  const { X_ACCESS_TOKEN } = c.env;
+  const accessToken = await X_ACCESS_TOKEN.get("accessToken");
+
+  const body = await c.req.parseBody();
+  const { text } = body;
+  console.log({
+    body: body,
+    tweets: text,
+    accessToken: accessToken,
+  });
+  try {
+    const response = await tweet({
+      accessToken: accessToken,
+      tweet: text as string,
+    });
+
+    if (!response) {
+      return c.json({ data: response }, 500);
+    }
+    return c.json({ data: response }, 200);
+  } catch (error: any) {
+    console.log(error.message);
+  }
+});
+
+export {
+  xSetupHandler,
+  healthCheckHandler,
+  xCallabckHandler,
+  getXtweetHandler,
+  postXtweethandler,
+};

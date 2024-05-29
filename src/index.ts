@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
+  getXtweetHandler,
   healthCheckHandler,
+  postXtweethandler,
   xCallabckHandler,
   xSetupHandler,
 } from "./middleware";
@@ -15,6 +17,8 @@ type Bindings = {
   NOTION_DATABASE_ID: string;
   STATE_KV: KVNamespace;
   CODE_VERIFIER_KV: KVNamespace;
+  X_ACCESS_TOKEN: KVNamespace;
+  X_REFRESH_TOKEN: KVNamespace;
   // [key: string]: KVNamespace | string;
 };
 
@@ -34,7 +38,7 @@ app.get("/oAuth2", ...xSetupHandler);
 // app.get("/x-Callback", async (c) => {
 //   try {
 //     const { code, state } = c.req.query();
-    
+
 //     const body={
 //       code: code,
 //       Client_id: c.env.CLIENT_ID,
@@ -42,7 +46,6 @@ app.get("/oAuth2", ...xSetupHandler);
 //       Client_secret
 
 //     }
-
 
 //   } catch (error) {
 //     return null;
@@ -52,39 +55,7 @@ app.get("/oAuth2", ...xSetupHandler);
 app.get("/callback", ...xCallabckHandler);
 
 /*-------------------------testing-routes-----------------------*/
-app.post("/kv-update-post", async (c) => {
-  try {
-    await c.env.STATE_KV.put("state", "stateUPdated");
-    await c.env.CODE_VERIFIER_KV.put("verifier", "codeVerifierUPdated");
-
-    const state = await c.env.STATE_KV.get("state");
-    const codeVerifier = await c.env.CODE_VERIFIER_KV.get("verifier");
-    return c.json({
-      success: true,
-      state: state,
-      codeVerifier: codeVerifier,
-    });
-  } catch (error: any) {
-    console.log(error?.message);
-    return c.text("Error", error.message);
-  }
-});
-app.get("/kv-update-get", async (c) => {
-  try {
-    await c.env.STATE_KV.put("state", "stateUPdated-get");
-    await c.env.CODE_VERIFIER_KV.put("verifier", "codeVerifierUPdated-get");
-
-    const state = await c.env.STATE_KV.get("state");
-    const codeVerifier = await c.env.CODE_VERIFIER_KV.get("verifier");
-    return c.json({
-      success: true,
-      state: state,
-      codeVerifier: codeVerifier,
-    });
-  } catch (error: any) {
-    console.log(error?.message);
-    return c.text("Error", error.message);
-  }
-});
+app.get("/x-tweets", ...getXtweetHandler);
+app.post("/x-tweets", ...postXtweethandler);
 
 export default app;

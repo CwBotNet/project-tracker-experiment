@@ -1,3 +1,5 @@
+import { getBasicAuthHeader } from "../helper/utils";
+
 /**
  * Generates an OAuth2 authorization link for Twitter.
  * @param callbackUrl The callback URL to redirect to after authorization.
@@ -122,6 +124,10 @@ async function getAccessToken({
   const url = "https://api.twitter.com/2/oauth2/token";
   const headers = {
     "Content-Type": "application/x-www-form-urlencoded",
+    Authorization: getBasicAuthHeader({
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
   };
   const body = {
     code: code,
@@ -148,7 +154,7 @@ async function getAccessToken({
     }
 
     const ContentType = response.headers.get("Content-Type");
-    let tokenData;
+    let tokenData: any;
     if (ContentType === "application/json") {
       tokenData = await response.json();
     } else {
@@ -232,10 +238,53 @@ async function tweet({
   return responseData;
 }
 
+// get x Tweet by post id
+
+interface Xpost {
+  tweetId: string;
+  accessToken: string;
+}
+async function getXtweet(post: Xpost) {
+  const { tweetId, accessToken } = post;
+  const getTweetEndPoint = "https://api.twitter.com/2/tweets?ids=";
+
+  const params = {
+    ids: `${tweetId}`,
+    "tweet.fields": "lang,author_id",
+    "user.fields": "created_at",
+  };
+
+  try {
+    // const response = await fetch(getTweetEndPoint, {
+    //   method: "GET",
+    //   headers: {
+    //     "Content-type": "application/json",
+    //     Authorization: "Bearer " + accessToken,
+    //   },
+    //   body: JSON.stringify(params),
+    // });
+
+    const response = await fetch(`${getTweetEndPoint}${tweetId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+      },
+    });
+    if (!response) {
+      console.log("post fetch error");
+    }
+    const result: any = response.json();
+    return result;
+  } catch (error: any) {
+    console.error("Failed to fetch post:", error.message);
+  }
+}
+async function postXtweet() {}
 export {
   generateOAuth2AuthLink,
   loginWithOauth2,
   refreshOAuth2Token,
   tweet,
   getAccessToken,
+  getXtweet,
 };
